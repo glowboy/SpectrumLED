@@ -1,6 +1,9 @@
 ﻿using SpectrumLED.Properties;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace SpectrumLED
@@ -13,16 +16,13 @@ namespace SpectrumLED
      */
     public class SpectrumLEDApplicationContext : ApplicationContext
     {
-
-
-        // Keyboard color options by row, top to bottom. The alpha is set programmatically so it's
+        
+        // The color input file.
+        // Keyboard colors are by row, top to bottom. The alpha is set programmatically so it's
         // left at 0. We use uint to get an unsigned 32-bit integer that we can break into its
         // constituent bytes.
         // Scaling the gradient based on LOGI_LED_BITMAP_HEIGHT left to the reader
-        public static readonly uint[] FIRE_ARGB = { 0xFFFF00, 0xFFCC00, 0xFF9900, 0xFF6600, 0xFF3300, 0xFF0000 };
-        public static readonly uint[] FIRE_INV_ARGB = { 0xFF0000, 0xFF3300, 0xFF6600, 0xFF9900, 0xFFCC00, 0xFFFF00 };
-        public static readonly uint[] ICE_ARGB = { 0xFFFFFF, 0xCCCCFF, 0x9999FF, 0x6666FF, 0x3333FF, 0x0000FF };
-        public static readonly uint[] ICE_INV_ARGB = { 0x0000FF, 0x3333FF, 0x6666FF, 0x9999FF, 0xCCCCFF, 0xFFFFFF };
+        public const string COLOR_FILE_NAME = "colors.txt";
 
         // Refresh rate options
         public const double SLOW_MS = 1000 / 8.0;
@@ -46,14 +46,13 @@ namespace SpectrumLED
             spectrumLED = new SpectrumApp();
             spectrumLED.Initialize();
 
+            MenuItem spectrumMenu = new MenuItem("Spectrum");
+            ReadColorOptions().ForEach(colorOpt => spectrumMenu.MenuItems.Add(
+                    new MenuItem(colorOpt.Item1, (s, e) => ColorOption_Click(s, colorOpt.Item2))));
+
             systrayIcon = new NotifyIcon();
             systrayIcon.ContextMenu = new ContextMenu(new MenuItem[] {
-                new MenuItem("Spectrum", new MenuItem[] {
-                    new MenuItem("Fire", (s, e) => ColorOption_Click(s, FIRE_ARGB)),
-                    new MenuItem("Fire (Inverse)", (s, e) => ColorOption_Click(s, FIRE_INV_ARGB)),
-                    new MenuItem("Ice", (s, e) => ColorOption_Click(s, ICE_ARGB)),
-                    new MenuItem("Ice (Inverse)", (s, e) => ColorOption_Click(s, ICE_INV_ARGB))
-                }),
+                spectrumMenu,
                 new MenuItem("Update Speed", new MenuItem[] {
                     new MenuItem("Chill (8Hz)", (s, e) => UpdateSpeed_Click(s, SLOW_MS)),
                     new MenuItem("Medium (16Hz)", (s, e) => UpdateSpeed_Click(s, MED_MS)),
@@ -79,6 +78,25 @@ namespace SpectrumLED
             spectrumLED.Shutdown(sender, e);
             systrayIcon.Visible = false;
             Application.Exit();
+        }
+
+        /*
+         * Ugly but I'll take it.
+         */
+        private List<Tuple<string, uint[]>> ReadColorOptions()
+        {
+            List<Tuple<string, uint[]>> list = new List<Tuple<string, uint[]>>();
+
+            StreamReader reader = new StreamReader(COLOR_FILE_NAME);
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                string[] opts = line.Split('=');
+                list.Add(new Tuple<string, uint[]>(opts[0], opts[1].Split(',')
+                        .Select(c => Convert.ToUInt32(c, 16)).ToArray()));
+            }
+
+            return list;
         }
 
         /*

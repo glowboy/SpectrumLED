@@ -17,7 +17,7 @@ namespace SpectrumLED
         const float MAX_ENTROPY = 0.9999f;
         float maxSeenEver = 0;
 
-        uint[] spectrum = SpectrumLEDApplicationContext.FIRE_ARGB;
+        uint[] spectrum = { 0xFFFF00, 0xFFCC00, 0xFF9900, 0xFF6600, 0xFF3300, 0xFF0000 };
 
         /*
          * Connect to the Logitech SDK, setting the target devices to PERKEY_RGB only.
