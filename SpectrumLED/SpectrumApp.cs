@@ -13,12 +13,13 @@ namespace SpectrumLED
      */
     public class SpectrumApp
     {
-        
+
         // Our ticker that triggers keyboard re-rendering. User-controllable via the systray menu
         private Timer ticker;
 
         // CSCore classes that read the WASAPI data and pass it to the SampleHandler
         private WasapiCapture capture;
+        private SingleBlockNotificationStream notificationSource;
         private IWaveSource finalSource;
 
         // An attempt at only-just-post-stream-of-consciousness code organization
@@ -26,29 +27,16 @@ namespace SpectrumLED
         private KeyboardHandler keyboardHandler;
 
         /*
-         * Initialize audio capture and our sample and keyboard handlers. No audio is read until
-         * SetEnable(true) is called.
+         * Basic initialization. No audio is read until SetEnable(true) is called.
          */
-        public void Initialize()
+        public SpectrumApp()
         {
             // Init the timer
             ticker = new Timer(SpectrumLEDApplicationContext.SLOW_MS);
             ticker.Elapsed += Tick;
 
-            // Init audio capture
-            capture = new WasapiLoopbackCapture();
-            capture.Initialize();
-
-            // Init sample and keyboard handlers
-            sampleHandler = new SampleHandler(capture.WaveFormat.Channels, capture.WaveFormat.SampleRate);
+            // Create keyboard handler
             keyboardHandler = new KeyboardHandler();
-
-            // Configure per-block reads rather than per-sample reads
-            var notificationSource = new SingleBlockNotificationStream(new SoundInSource(capture).ToSampleSource());
-            notificationSource.SingleBlockRead += (s, e) => sampleHandler.Add(e.Left, e.Right);
-
-            finalSource = notificationSource.ToWaveSource();
-            capture.DataAvailable += (s, e) => finalSource.Read(e.Data, e.Offset, e.ByteCount);
         }
 
         /*
@@ -58,7 +46,7 @@ namespace SpectrumLED
         {
             if (enabled)
             {
-                capture.Start();
+                StartCapture();
                 keyboardHandler.Connect();
                 ticker.Start();
             }
@@ -66,7 +54,7 @@ namespace SpectrumLED
             {
                 ticker.Stop();
                 keyboardHandler.Disconnect();
-                capture.Stop();
+                StopCapture();
             }
         }
 
@@ -92,13 +80,7 @@ namespace SpectrumLED
          */
         public void Shutdown(object sender, EventArgs e)
         {
-            ticker.Stop();
-            keyboardHandler.Disconnect();
-            if (!(capture.RecordingState == RecordingState.Stopped))
-            {
-                capture.Stop();
-            }
-            capture.Dispose();
+            SetEnabled(false);
         }
 
         /*
@@ -112,6 +94,47 @@ namespace SpectrumLED
             if (values != null)
             {
                 keyboardHandler.RenderSpectrum(values);
+            }
+        }
+
+        /*
+         * Begin audio capture. Connects to WASAPI, initializes the sample handler, and begins
+         * sending captured data to it.
+         */
+        private void StartCapture()
+        {
+            // Initialize hardware capture
+            capture = new WasapiLoopbackCapture();
+            capture.Initialize();
+
+            // Init sample handler
+            sampleHandler = new SampleHandler(capture.WaveFormat.Channels, capture.WaveFormat.SampleRate);
+
+            // Configure per-block reads rather than per-sample reads
+            notificationSource = new SingleBlockNotificationStream(new SoundInSource(capture).ToSampleSource());
+            notificationSource.SingleBlockRead += (s, e) => sampleHandler.Add(e.Left, e.Right);
+
+            finalSource = notificationSource.ToWaveSource();
+            capture.DataAvailable += (s, e) => finalSource.Read(e.Data, e.Offset, e.ByteCount);
+
+            // Start capture
+            capture.Start();
+        }
+
+        /*
+         * Stop the audio capture, if currently recording. Properly disposes member objects.
+         */
+        private void StopCapture()
+        {
+            if (capture.RecordingState == RecordingState.Recording)
+            {
+                capture.Stop();
+
+                finalSource.Dispose();
+                notificationSource.Dispose();
+                capture.Dispose();
+
+                sampleHandler = null;
             }
         }
 

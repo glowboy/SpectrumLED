@@ -44,7 +44,6 @@ namespace SpectrumLED
         public SpectrumLEDApplicationContext()
         {
             spectrumLED = new SpectrumApp();
-            spectrumLED.Initialize();
 
             MenuItem spectrumMenu = new MenuItem("Spectrum");
             ReadColorOptions().ForEach(colorOpt => spectrumMenu.MenuItems.Add(

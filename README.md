@@ -19,6 +19,10 @@ Ok, maybe not all that.  But maybe changing from a yellow-red spectrum to blue-w
 Bear in mind I am not a C# developer, but the Logitech SDK was way easier to use in C# than the Java JNI version. Ugh.
 
 #### Version History
+0.3.0:
+- Initialization of capture now happens when enabled. This allows changing audio output devices (e.g., speakers to headphones) without the need to restart the application
+- Better memory management when starting and stopping capture
+
 0.2.0:
 - Read in color mappings from file
 - Copy LogitechLedEnginesWrapper.dll to output at build
